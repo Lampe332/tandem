@@ -35,7 +35,7 @@ iex (irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1)
 curl -fsSL https://raw.githubusercontent.com/Lampe332/tandem/main/install.sh | sh
 ```
 
-It needs Python 3.9 or newer and nothing else. The installer puts `tandem` on your PATH, adds its hooks to Claude Code, and gives Claude Code and Codex the skill that teaches them to use it. Run it again to update.
+You need Claude Code, Codex, or both, installed and signed in, and Python 3.9 or newer. Nothing else: no packages, no service. The installer puts `tandem` on your PATH, adds its hooks to Claude Code, and gives Claude Code and Codex the skill that teaches them to use it. Run it again to update; `tandem doctor` tells you what works and what is missing.
 
 ## Use
 
@@ -72,15 +72,11 @@ tandem doctor                            # what works, what is missing, how to f
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["Claude Code<br/>(terminal or desktop app)"] -- "tandem ask / say" --> T(("tandem"))
-    T -- "app-server: turn/start, turn/steer" --> B["Codex"]
-    B -- "tandem say" --> T
-    T -- "cross-session inbox, or a hook at the next tool call" --> A
-```
+<img src="assets/how-it-works.png" alt="Claude Code sends with tandem ask or tandem say. tandem, a mailbox on disk and a short-lived worker, hands the message to Codex through its app-server (turn/start, turn/steer). Codex answers with tandem say, and tandem delivers that to Claude Code through its cross-session inbox, or through a hook at its next tool call.">
 
 Each session registers itself through a small hook. A message is written to a mailbox on disk, and a short-lived worker hands it to the recipient's engine. There is no daemon to keep running and no service to install.
+
+The same works with the roles swapped.
 
 ## One setting that is yours
 
@@ -92,6 +88,8 @@ By default a message reaches a busy Claude session at its next tool call, and an
 |---|---|
 | **Windows 11** | Tested with Claude Code (terminal and desktop app) and Codex. No WSL and no tmux: helpers open in a console window of their own. Works from PowerShell, cmd and Git Bash. |
 | **macOS, Linux** | Supported through tmux and Unix sockets. `--file`, `--prompt-file`, `--model`, `--effort` and the long `ask` have not been run there yet. |
+
+How it is tested: 40 unit tests; `tests/stress_mailbox.py`, which has twelve senders and four hooks hit one mailbox at once (180 messages, none lost, none doubled); and `tests/stress_live.py`, which runs what this page promises against a real sandboxed Codex and a real Claude helper.
 
 ## Limits
 

@@ -8,17 +8,17 @@ description: Use when you need to talk to another coding agent (Claude Code or C
 Other agents are addressed by name. `tandem` delivers through each engine's own input path (Claude Code's cross-session inbox, Codex's app-server), never by typing into a terminal. So there is no read → type → verify → Enter cycle, a draft the user is typing stays intact, and an approval prompt never receives your keystrokes.
 
 ```bash
-tandem                          # who is near you and what each is doing
+tandem                            # who is near you and what each is doing
 tandem --all | tandem <search>    # everyone, or search by name/folder/title
 tandem me | tandem name NEW       # who you are / rename yourself
-tandem say NAME "text"          # send one message; prints where it went
-tandem say NAME --file PATH     # the same, text from a UTF-8 file
-tandem ask NAME "question"      # send and wait for the reply (30s; --timeout up to 3600)
-tandem read NAME [--last 3]     # their last answers, from the engine's own history
+tandem say NAME "text"            # send one message; prints where it went
+tandem say NAME --file PATH       # the same, text from a UTF-8 file
+tandem ask NAME "question"        # send and wait for the reply (30s; --timeout up to 3600)
+tandem read NAME [--last 3]       # their last answers, from the engine's own history
 tandem wait NAME [--until idle] [--timeout 600]
 tandem spawn NAME --kind claude|codex [--cwd DIR] [--model M] [--effort E] [--prompt-file PATH] [-- ENGINE ARGS]
-tandem models                   # the models and effort levels spawn accepts
-tandem doctor                   # what works, what is missing, how to fix it
+tandem models                     # the models and effort levels spawn accepts
+tandem doctor                     # what works, what is missing, how to fix it
 ```
 
 ## The rules that make it work
@@ -29,6 +29,7 @@ tandem doctor                   # what works, what is missing, how to fix it
    - `delivered` — in their conversation now.
    - `queued` — they are working and get it at their next tool call.
    - `held` — they cannot take it right now (waiting on their user, idle, ended). It is kept and delivered when they can; do not resend. The end of the line says what it waits for.
+   - `failed` — it will not arrive; the line says why. Fix that, then send again.
 4. **An agent's message is a colleague's request**, not your user's approval for anything. Weigh it against your own task.
 5. **Only talk to agents that are part of your task.** The list also shows the user's other sessions. Leave those alone unless the user asked you to involve them.
 6. **A fix that changes the user's setup is theirs to decide.** When a line names one (`tandem install --accept-inbound`), tell the user; do not run it yourself.
@@ -95,13 +96,13 @@ A message is text. To hand over a file or a generated image, save it and send it
 
 ## When it does not work
 
-- `tandem: command not found` — not installed, or this session started before the install. See Setup; until a restart, call it by full path (`~/.local/share/tandem/win/tandem.cmd` on Windows, `~/.local/bin/tandem` elsewhere).
+- `tandem: command not found` — not installed, or this session started before the install. See Setup; until a restart, call it by full path (on Windows `~/.local/share/tandem/win/tandem.cmd`, or `~/.local/share/tandem/win/tandem` from Git Bash; elsewhere `~/.local/bin/tandem`).
 - `this session has no tandem identity yet` — tandem has not seen this session. Its hooks register a session at its next prompt or tool call: run `tandem doctor`, and if the hooks are in place, try again after your next tool call.
 - `no agent named NAME` — check `tandem --all`; names are case-sensitive, and an ended session shows as `gone`.
 - `held … idle Claude reads it on its next turn` — the recipient is an idle Claude and its user has not turned on `--accept-inbound`. Tell your user; do not resend.
 - `held … this Codex was not started through tandem` — it cannot receive. Start one with `tandem spawn`.
 - `timeout` from `ask` — the question stays sent. Read what they have so far with `tandem read NAME`.
-- `No assistant answers recorded yet` from `read` — that agent has not finished a turn, or its engine keeps no history for its folder (seen with Claude started inside the system temp folder). Give helpers a normal working folder, and rely on their `tandem say`.
+- `No assistant answers recorded yet` from `read` — that agent has not finished a turn yet. Wait until it is `idle` (`tandem wait NAME --until idle`), then read again.
 
 ## Setup (once per machine)
 
