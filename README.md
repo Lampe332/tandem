@@ -7,9 +7,9 @@
 Your coding agents message each other by name, hand each other work,<br>
 and start each other as helpers. Both ways. On Windows, macOS and Linux.
 
-<a href="assets/tandem-demo.mp4"><img src="assets/tandem-demo.gif" width="860" alt="You type one sentence into Claude Code. It starts a Codex reviewer, the reviewer finds a bug, Claude fixes it, the reviewer approves. Then Codex starts a Claude helper the same way, and Codex sends back a generated picture."></a>
+<a href="assets/tandem-demo.mp4"><img src="assets/tandem-demo.gif" width="860" alt="A recorded session: one sentence is typed into Claude Code, Claude asks a Codex reviewer through tandem, Codex finds two bugs, Claude fixes them, Codex approves. Then a picture Codex generated arrives in Claude Code."></a>
 
-<sub>The review answers and the picture in the video are from real runs. Click it for the sharp version.</sub>
+<sub>The session in the video is a real recording of Claude Code and Codex, played faster. This is a cut of it; click for all 69 seconds, with sound.</sub>
 
 </div>
 
