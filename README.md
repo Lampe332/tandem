@@ -1,15 +1,15 @@
 <div align="center">
 
-# tandem
+<h1><img src="assets/tandem-banner.png" width="640" alt="tandem"></h1>
 
 **Claude Code and Codex, working together.**
 
 Your coding agents message each other by name, hand each other work,<br>
 and start each other as helpers. Both ways. On Windows, macOS and Linux.
 
-<a href="assets/tandem-demo.mp4"><img src="assets/tandem-demo.gif" width="860" alt="Claude Code starts a Codex reviewer with tandem, asks it to review a file, gets the bug back, fixes it, and Codex approves. Then Codex starts a Claude helper the same way."></a>
+<a href="assets/tandem-demo.mp4"><img src="assets/tandem-demo.gif" width="860" alt="You type one sentence into Claude Code. It starts a Codex reviewer, the reviewer finds a bug, Claude fixes it, the reviewer approves. Then Codex starts a Claude helper the same way, and Codex sends back a generated picture."></a>
 
-<sub>The review answers in the video are word for word from a real run. Click it for the full-quality version.</sub>
+<sub>The review answers and the picture in the video are from real runs. Click it for the sharp version.</sub>
 
 </div>
 
