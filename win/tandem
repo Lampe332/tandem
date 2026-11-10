@@ -1,0 +1,15 @@
+#!/bin/sh
+# Git Bash entry point on Windows (Claude Code's Bash tool runs there); tandem.cmd serves cmd and PowerShell.
+# bin/tandem itself asks for python3, which a stock Windows Python does not provide.
+#
+# tandem learns which agent is calling by walking up the parent processes. Git Bash breaks that walk: when it
+# starts a script, the process Windows remembers as the parent has already ended. Git Bash keeps its own
+# record of who started whom, so follow that up to the shell the agent itself started, and tell tandem the
+# Windows process behind it.
+pid=$$
+while [ -r "/proc/$pid/ppid" ]; do
+    parent=$(cat "/proc/$pid/ppid")
+    [ "$parent" -gt 1 ] 2>/dev/null || break
+    pid=$parent
+done
+TANDEM_ANCESTOR=$(cat "/proc/$pid/winpid" 2>/dev/null) python "$(dirname "$0")/../bin/tandem" "$@"

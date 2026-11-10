@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Run Codex with an app-server tandem can reach: `tandem run codex [codex args]`.
+
+A Codex TUI keeps its app-server inside its own process, where nothing outside can talk to it.
+This starts one private server for one TUI and attaches the TUI with --remote, so tandem can start
+or steer turns and read the thread's state. The server belongs to that TUI alone, so restarting a
+shared daemon cannot cut it off, and it ends when the TUI exits."""
+import contextlib
+import functools
+import os
+from pathlib import Path
+import secrets
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from tandem_codex import watch
+from tandem_core import launcher
+from tandem_transport import BIN, token_file
+
+WINDOWS = os.name == 'nt'
+if WINDOWS:
+    import tandem_win
+TOKEN_ENV = 'TANDEM_CODEX_TOKEN'  # the TUI reads its app-server token from here (--remote-auth-token-env)
+
+
+def interrupted(signum, frame):
+    raise SystemExit(128 + signum)
+
+
+def config_overrides(args):
+    """-c/--config/--enable/--disable pairs. The server builds the thread, so it needs them too:
+    given only to a --remote TUI, overrides such as developer_instructions never reach the model."""
+    out, i = [], 0
+    while i < len(args):
+        if args[i] in ('-c', '--config', '--enable', '--disable') and i + 1 < len(args):
+            out += args[i:i + 2]; i += 2
+        elif args[i].startswith(('--config=', '--enable=', '--disable=')):
+            out.append(args[i]); i += 1
+        else:
+            i += 1
+    return out
+
+
+# Subcommands that open a session TUI take --remote after their own name; every other subcommand
+# (exec, login, mcp, ...) is not a session tandem could reach, so it runs Codex directly. That keeps
+# `alias codex='tandem run codex'` (tandem install --codex-alias) from changing anything but the TUI.
+SESSION_COMMANDS = {'resume', 'fork'}
+VALUE_OPTIONS = {'-c', '--config', '-m', '--model', '-p', '--profile', '-s', '--sandbox', '-a', '--ask-for-approval',
+                 '-C', '--cd', '-i', '--image', '--enable', '--disable', '--add-dir', '--remote', '--remote-auth-token-env',
+                 '--local-provider'}
+PASSTHROUGH_FLAGS = {'-h', '--help', '-V', '--version'}
+
+
+def first_word(args):
+    """(index, word) of the first argument that is not an option or an option's value."""
+    i = 0
+    while i < len(args):
+        if args[i] == '--':
+            return None, None
+        if args[i].startswith('-'):
+            i += 2 if args[i] in VALUE_OPTIONS else 1
+            continue
+        return i, args[i]
+    return None, None
+
+
+def tui_args(args, sock):
+    """Codex's own arguments with --remote placed where that command reads it, or None to run Codex
+    as is. A first word that is not a subcommand is the TUI's opening prompt."""
+    if PASSTHROUGH_FLAGS.intersection(args):
+        return None
+    # A Unix socket path, or the ws:// URL of a loopback server, which also wants its token.
+    remote = ['--remote', sock, '--remote-auth-token-env', TOKEN_ENV] if sock.startswith('ws://') else ['--remote', 'unix://' + sock]
+    at, word = first_word(args)
+    if word in SESSION_COMMANDS:
+        return args[:at + 1] + remote + args[at + 1:]
+    if word is not None and word in codex_subcommands():
+        return None
+    return remote + args
+
+
+@functools.lru_cache(maxsize=1)
+def codex_subcommands():
+    """Read from `codex --help` once, so a new subcommand passes through without an agent release.
+    A command line is indented two spaces; deeper lines continue the description above."""
+    try:
+        text = subprocess.run(launcher('codex') + ['--help'], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        text = ''
+    words, listing = set(), False
+    for line in text.splitlines():
+        if line.strip() == 'Commands:':
+            listing = True
+        elif listing and not line.strip():
+            break
+        elif listing:
+            if line.startswith('  ') and not line.startswith('   '):
+                words.add(line.split()[0])
+            words.update(a.strip() for a in line.partition('[aliases:')[2].rstrip(']').split(',') if a.strip())
+    return words or {'exec', 'e', 'review', 'login', 'logout', 'mcp', 'mcp-server', 'app-server', 'completion', 'apply', 'a',
+                     'sandbox', 'debug', 'cloud', 'features', 'help', 'update', 'doctor'}
+
+
+def listening(port):
+    try:
+        socket.create_connection(('127.0.0.1', port), timeout=.2).close()
+        return True
+    except OSError:
+        return False
+
+
+@contextlib.contextmanager
+def endpoint():
+    """Where this session's app-server listens: (address tandem records, --listen arguments, extra environment
+    for the TUI, ready check)."""
+    if WINDOWS:
+        # Windows Python has no AF_UNIX, so the server listens on loopback TCP. A port is open to every
+        # account on the machine, hence a capability token that only this user's files reveal.
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            port = probe.getsockname()[1]
+        url = 'ws://127.0.0.1:%d' % port
+        token, file = secrets.token_urlsafe(32), token_file(url)
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(token)
+        try:
+            yield (url, [url, '--ws-auth', 'capability-token', '--ws-token-file', str(file)], {TOKEN_ENV: token},
+                   lambda: listening(port))
+        finally:
+            file.unlink(missing_ok=True)
+        return
+    # /tmp keeps the socket path under macOS's 104-byte limit; a longer one fails to bind.
+    with tempfile.TemporaryDirectory(prefix='tandem-codex-', dir='/tmp') as temp:
+        sock = str(Path(temp) / 'c.sock')
+        yield sock, ['unix://' + sock], {}, Path(sock).exists
+
+
+def main(args):
+    if tui_args(args, '') is None:
+        if WINDOWS:  # exec there starts a second process and lets go of the console
+            return subprocess.run(launcher('codex') + args).returncode
+        os.execvp(launcher('codex')[0], launcher('codex') + args)
+    for name in ('SIGHUP', 'SIGTERM', 'SIGBREAK'):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), interrupted)
+    stopped = threading.Event()
+    server = None
+    with endpoint() as (sock, listen, tui_env, ready):
+        env = dict(os.environ, TANDEM_CODEX_SOCKET=sock)
+        binary = os.environ.get('TANDEM_CODEX_BIN') or (launcher('codex')[0] if WINDOWS else 'codex')
+        if WINDOWS:
+            # Codex's shell tool must find `tandem` even in a session started before PATH was set up.
+            env['PATH'] = str(BIN.parent / 'win') + os.pathsep + env.get('PATH', '')
+        server = subprocess.Popen([binary, 'app-server', '--listen'] + listen + config_overrides(args),
+                                  env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        job = tandem_win.end_with_me(server) if WINDOWS else None  # noqa: F841 — held until this process ends
+        try:
+            for _ in range(100):
+                if ready():
+                    break
+                if server.poll() is not None:
+                    sys.exit('tandem: codex app-server exited during startup')
+                time.sleep(.1)
+            threading.Thread(target=watch, args=(server, sock, stopped), daemon=True).start()
+            result = subprocess.run(launcher('codex') + tui_args(args, sock), env=dict(env, **tui_env))
+        finally:
+            stopped.set()
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server.wait()
+    return result.returncode
+
+
+if __name__ == '__main__':
+    if sys.argv[1:2] != ['codex']:
+        sys.exit('usage: tandem run codex [codex args]  (Claude needs no launcher)')
+    sys.exit(main(sys.argv[2:]))

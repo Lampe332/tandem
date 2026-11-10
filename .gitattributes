@@ -1,0 +1,8 @@
+# Git Bash runs win/tandem and the bin scripts by their #! line; a CRLF there, as a Windows checkout with
+# autocrlf would write it, breaks them. cmd wants CRLF in its own files.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.gif binary
+*.mp4 binary
+# The installers fetch an archive of this repository; the demo video would be most of it.
+assets/ export-ignore
