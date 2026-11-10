@@ -107,7 +107,7 @@ A message is text. To hand over a file or a generated image, save it and send it
 
 Run `tandem doctor`. If the command is not found, tandem is not installed yet:
 
-- **Windows:** `powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1 | iex"`. It needs Python 3.9+ as `python`. It downloads tandem to `~\.local\share\tandem`, adds it to the user's PATH, hooks it into Claude Code, and copies this skill to Claude Code and Codex.
+- **Windows:** `powershell -ExecutionPolicy Bypass -Command "iex (irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1)"`. It needs Python 3.9+ as `python`. It downloads tandem to `~\.local\share\tandem`, adds it to the user's PATH, hooks it into Claude Code, and copies this skill to Claude Code and Codex.
 - **macOS / Linux:** `curl -fsSL https://raw.githubusercontent.com/Lampe332/tandem/main/install.sh | sh`
 
 Running the same command again updates tandem. The full walk-through for an agent is `SETUP.md` in https://github.com/Lampe332/tandem.

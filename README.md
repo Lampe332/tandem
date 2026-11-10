@@ -26,7 +26,7 @@ Or run one line yourself.
 **Windows** (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1 | iex
+iex (irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1)
 ```
 
 **macOS and Linux**

@@ -9,7 +9,7 @@ Installing adds hooks to their Claude Code settings and a folder to their PATH. 
 Windows, in PowerShell (your shell tool may be Git Bash: then run it as `powershell -ExecutionPolicy Bypass -Command "…"`):
 
 ```powershell
-irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1 | iex
+iex (irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1)
 ```
 
 macOS and Linux:

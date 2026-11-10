@@ -1,10 +1,12 @@
 # Windows counterpart of install.sh: fetch tandem if needed, put it on PATH, hook it into Claude Code, install the
 # agent skill, then check. Extra arguments go to `tandem install` (for example --accept-inbound).
 #
-#   irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1 | iex      download and install
+#   iex (irm https://raw.githubusercontent.com/Lampe332/tandem/main/install.ps1)      download and install
 #   powershell -ExecutionPolicy Bypass -File install.ps1 [--accept-inbound]         install this checkout in place
 #
-# Everything runs inside one script block: piped into iex this text runs in the person's own shell, where a
+# The download line is written as iex (irm ...), not irm ... | iex: the piped form fails with a parse error when
+# an agent runs it through a non-interactive `powershell -Command`.
+# Everything runs inside one script block: under iex this text runs in the person's own shell, where a
 # stray `exit` would close their window and a variable set here would stay behind.
 & {
     $ErrorActionPreference = 'Stop'
