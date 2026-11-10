@@ -96,7 +96,7 @@ By default a message reaches a busy Claude session at its next tool call, and an
 ## Limits
 
 - Claude Code's cross-session inbox is not a public API. tandem uses the protocol it observed and falls back to hooks when that changes, but a Claude Code update can break the fast path.
-- A Codex can receive only when it was started by `tandem spawn` or `tandem run codex`.
+- A Codex can receive only when it was started by `tandem spawn` or `tandem run codex`. Started that way it can also answer from inside its sandbox: tandem adds its mailbox folder to the folders that Codex may write.
 - An idle Claude helper takes a follow-up message only at its next turn, unless you turned on `--accept-inbound`. Its first task always arrives: `tandem spawn … --prompt-file task.txt`.
 - Helpers use your Claude and Codex quota, and on Windows their windows stay open until you close them.
 

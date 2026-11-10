@@ -7,6 +7,7 @@ or steer turns and read the thread's state. The server belongs to that TUI alone
 shared daemon cannot cut it off, and it ends when the TUI exits."""
 import contextlib
 import functools
+import json
 import os
 from pathlib import Path
 import secrets
@@ -18,7 +19,7 @@ import tempfile
 import threading
 import time
 from tandem_codex import watch
-from tandem_core import launcher
+from tandem_core import launcher, root
 from tandem_transport import BIN, token_file
 
 WINDOWS = os.name == 'nt'
@@ -43,6 +44,41 @@ def config_overrides(args):
         else:
             i += 1
     return out
+
+
+SERVER_ONLY = 'sandbox_workspace_write.'  # overrides a --remote TUI refuses: the server alone decides the sandbox
+
+
+def for_tui(args):
+    """The arguments without the overrides only the server may be given."""
+    out, i = [], 0
+    while i < len(args):
+        if args[i] in ('-c', '--config') and i + 1 < len(args) and args[i + 1].startswith(SERVER_ONLY):
+            i += 2
+        elif args[i].startswith('--config=' + SERVER_ONLY):
+            i += 1
+        else:
+            out.append(args[i]); i += 1
+    return out
+
+
+def mailbox_root(args):
+    """A sandboxed Codex may write in its work folder and nowhere else, and tandem's mailbox is elsewhere: without
+    this, `tandem say` fails for every Codex that runs in the default sandbox. So the mailbox is named to the server
+    as one more writable folder, next to any the person configured themselves."""
+    if any(SERVER_ONLY + 'writable_roots' in a for a in args):
+        return []  # they set the list themselves for this session; leave it theirs
+    roots = []
+    try:
+        import tomllib
+        home = Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex')
+        configured = tomllib.loads((home / 'config.toml').read_text(encoding='utf-8')).get('sandbox_workspace_write', {})
+        roots = [r for r in configured.get('writable_roots', []) if isinstance(r, str)]
+    except Exception:  # noqa: BLE001 — no config, an older Python without tomllib, or a file we cannot read
+        pass
+    state = root().as_posix()
+    root().mkdir(parents=True, exist_ok=True)
+    return ['-c', SERVER_ONLY + 'writable_roots=' + json.dumps(roots + [state] if state not in roots else roots)]
 
 
 # Subcommands that open a session TUI take --remote after their own name; every other subcommand
@@ -155,7 +191,7 @@ def main(args):
         if WINDOWS:
             # Codex's shell tool must find `tandem` even in a session started before PATH was set up.
             env['PATH'] = str(BIN.parent / 'win') + os.pathsep + env.get('PATH', '')
-        server = subprocess.Popen([binary, 'app-server', '--listen'] + listen + config_overrides(args),
+        server = subprocess.Popen([binary, 'app-server', '--listen'] + listen + config_overrides(args) + mailbox_root(args),
                                   env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         job = tandem_win.end_with_me(server) if WINDOWS else None  # noqa: F841 — held until this process ends
         try:
@@ -166,7 +202,7 @@ def main(args):
                     sys.exit('tandem: codex app-server exited during startup')
                 time.sleep(.1)
             threading.Thread(target=watch, args=(server, sock, stopped), daemon=True).start()
-            result = subprocess.run(launcher('codex') + tui_args(args, sock), env=dict(env, **tui_env))
+            result = subprocess.run(launcher('codex') + tui_args(for_tui(args), sock), env=dict(env, **tui_env))
         finally:
             stopped.set()
             server.terminate()

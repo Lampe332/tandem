@@ -59,6 +59,11 @@ def models():
     return {'text': '\n'.join(lines) + '\n'}
 
 
+INHERITED = ('CLAUDECODE', 'CLAUDE_PID', 'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID',
+             'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_SSE_PORT',
+             'CLAUDE_CODE_SESSION_ATTENDED', 'TANDEM_ANCESTOR')
+
+
 def spawn(argv):
     parser = argparse.ArgumentParser(prog='tandem spawn')
     parser.add_argument('name')
@@ -95,7 +100,14 @@ def spawn(argv):
     engine = launcher(args.kind) if args.kind == 'claude' else [sys.executable, str(BIN / 'tandem-session'), 'codex']
     if not shutil.which(launcher(args.kind)[0]):
         raise ValueError(launcher(args.kind)[0] + ' is not on PATH (see launch.json in tandem doctor)')
-    env = dict(os.environ, TANDEM_NAME=args.name, TANDEM_STATE=str(root()), TANDEM_CONFIG=str(config()))
+    # An agent often starts another from inside its own shell, and that shell carries the markers of the session
+    # it belongs to. The new agent must not inherit them: it would take itself for a child of that session, and a
+    # Claude that does keeps no history, so `tandem read` would find nothing to show.
+    env = {k: v for k, v in os.environ.items() if k.upper() not in INHERITED}
+    env.update(TANDEM_NAME=args.name, TANDEM_STATE=str(root()), TANDEM_CONFIG=str(config()))
+    # The new agent has to find `tandem` to answer at all, also when whoever starts it was itself started before
+    # tandem was put on PATH.
+    env['PATH'] = str(BIN.parent / 'win' if os.name == 'nt' else BIN) + os.pathsep + env.get('PATH', '')
     if os.name == 'nt':
         # No tmux: the engine gets a console window of its own, where its user can watch it and type.
         import tandem_win

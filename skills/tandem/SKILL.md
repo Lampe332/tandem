@@ -80,7 +80,7 @@ tandem spawn helper   --kind claude --cwd DIR --model sonnet --prompt-file task.
   ```
 
   Its `tandem say` to you arrives as well; `read` gets the result even if it forgets. For a second task, start another helper, or send it and accept that it lands at that Claude's next turn.
-- The helper needs to be allowed to run `tandem` in its shell. A Claude that asks its user before shell commands shows `blocked(permission)` until they approve in its window; `-- --allowedTools "Bash(tandem:*)"` allows just tandem up front. A sandboxed Codex must be able to write `~/.local/state/tandem`; if `tandem` fails there, tell the user, do not work around it.
+- The helper needs to be allowed to run `tandem` in its shell. A Claude that asks its user before shell commands shows `blocked(permission)` until they approve in its window; `-- --allowedTools "Bash(tandem:*)" "PowerShell(tandem:*)"` allows just tandem up front (on Windows Claude may reach for either shell). A Codex that tandem starts can use `tandem` inside its sandbox: tandem names its mailbox folder to that Codex as one more folder it may write.
 - Helpers cost the user's quota and open on their screen. Start one when the task calls for it, close the loop by reading its result, and tell the user it is there.
 
 ### Files and images
